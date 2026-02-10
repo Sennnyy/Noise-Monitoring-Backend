@@ -31,10 +31,8 @@ ZonoTrack/
 │   └── label_classes.npy        # Sound class names
 │
 ├── 📁 dataset/                  # Training data
-│   ├── children playing/        # 403 audio files
-│   ├── construction/            # 900 audio files
-│   ├── dog_sound/               # 384 audio files
-│   └── vehicle_sound/           # 237 audio files
+│   ├── dog_sound/               # 1082 audio files
+│   └── vehicle_sound/           # 588 audio files
 │
 ├── 📁 results/                  # Output files
 │   ├── confusion_matrix.png
@@ -128,7 +126,7 @@ See `docs/ESP32_README.md` for complete setup guide.
 ## 📈 Model Performance
 
 - **Accuracy**: Run `python scripts/confusion_matrix.py` to evaluate
-- **Classes**: 4 sound categories (children playing, construction, dog, vehicle)
+- **Classes**: 2 sound categories (dog, vehicle)
 - **Features**: 130 MFCC features per sample
 - **Sample Rate**: 22050 Hz
 

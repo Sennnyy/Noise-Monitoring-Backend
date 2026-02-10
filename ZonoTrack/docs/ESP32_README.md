@@ -203,7 +203,7 @@ Running K-Means inference...
 -------------------------------------------
  RESULTS
 -------------------------------------------
-Sound Class:  construction
+Sound Class:  vehicle_sound
 Confidence:   92.18%
 Decibels:     85.67 dB SPL
 Noise Level:  Very loud (heavy traffic)

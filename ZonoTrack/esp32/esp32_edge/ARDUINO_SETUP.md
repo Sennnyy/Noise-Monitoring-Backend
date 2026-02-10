@@ -118,7 +118,7 @@ esp32_edge_arduino/
  ZonoTrack ESP32 Edge Classifier
 ===========================================
 Model: 256 clusters, 130 features
-Classes: 4
+Classes: 2
 ===========================================
 
 [SETUP] Allocating memory...
@@ -229,9 +229,7 @@ L/R        →    GND
 
 ### 2. Test Classification
 - Try different sounds:
-  - Talk (should detect "children playing" or similar)
   - Play vehicle sounds from phone
-  - Make construction-like noises
   - Dog barking sounds
 
 ### 3. Monitor Performance

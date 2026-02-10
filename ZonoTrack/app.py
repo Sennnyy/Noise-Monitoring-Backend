@@ -215,7 +215,6 @@ def get_noise_level_description(db_spl):
     - 60 dB: Normal conversation
     - 70 dB: Traffic
     - 85 dB: Heavy traffic (hearing damage threshold)
-    - 100 dB: Construction
     - 120 dB: Pain threshold
     """
     if db_spl < 30:
@@ -232,8 +231,6 @@ def get_noise_level_description(db_spl):
         return 'Very loud (heavy traffic)'
     elif db_spl < 100:
         return 'Dangerously loud (prolonged exposure harmful)'
-    elif db_spl < 120:
-        return 'Extremely loud (construction level)'
     else:
         return 'Pain threshold exceeded'
 

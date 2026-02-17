@@ -12,15 +12,9 @@
 #include "config.h"
 #include "centroids.h"
 
-// ============================================
-// Global Variables
-// ============================================
 int16_t* audioBuffer = nullptr;
 float* mfccFeatures = nullptr;
 
-// ============================================
-// I2S Configuration
-// ============================================
 void setupI2S() {
     Serial.println("\n[SETUP] Configuring I2S...");
     
@@ -52,9 +46,6 @@ void setupI2S() {
     Serial.println("[SETUP] I2S configured successfully");
 }
 
-// ============================================
-// Audio Recording
-// ============================================
 bool recordAudio() {
     Serial.println("\n[AUDIO] Recording audio...");
     unsigned long startTime = millis();
@@ -65,7 +56,6 @@ bool recordAudio() {
     for (int i = 0; i < BUFFER_SIZE; i++) {
         i2s_read(I2S_PORT, &sample32, sizeof(sample32), &bytesRead, portMAX_DELAY);
         
-        // Convert 32-bit to 16-bit (shift right by 14 bits for INMP441)
         audioBuffer[i] = (int16_t)(sample32 >> 14);
         
         #if DEBUG_AUDIO
@@ -81,56 +71,40 @@ bool recordAudio() {
     return true;
 }
 
-// ============================================
-// Helper: Convert Hz to Mel scale
-// ============================================
 float hzToMel(float hz) {
     return 2595.0f * log10f(1.0f + hz / 700.0f);
 }
 
-// ============================================
-// Helper: Convert Mel to Hz scale
-// ============================================
 float melToHz(float mel) {
     return 700.0f * (powf(10.0f, mel / 2595.0f) - 1.0f);
 }
 
-// ============================================
-// MFCC Feature Extraction (Simplified)
-// ============================================
 void extractMFCC() {
     Serial.println("\n[MFCC] Extracting features...");
     unsigned long startTime = millis();
     
-    // Initialize features to zero
     for (int i = 0; i < TOTAL_FEATURES; i++) {
         mfccFeatures[i] = 0.0f;
     }
     
-    // Calculate number of frames
     int numFrames = (BUFFER_SIZE - N_FFT) / HOP_LENGTH + 1;
     int framesPerSegment = numFrames / NUM_SEGMENTS;
     
-    // Process each segment
     for (int seg = 0; seg < NUM_SEGMENTS; seg++) {
         float segmentMFCC[NUM_MFCC] = {0};
         int frameCount = 0;
         
-        // Average MFCCs over frames in this segment
         for (int f = 0; f < framesPerSegment && (seg * framesPerSegment + f) < numFrames; f++) {
             int frameStart = (seg * framesPerSegment + f) * HOP_LENGTH;
             
-            // Simple energy-based features (approximation of MFCC)
             float energy = 0.0f;
             for (int i = 0; i < N_FFT && (frameStart + i) < BUFFER_SIZE; i++) {
                 float sample = (float)audioBuffer[frameStart + i] / 32768.0f;
                 energy += sample * sample;
             }
             
-            // Distribute energy across MFCC coefficients (simplified)
             segmentMFCC[0] += log10f(energy + 1e-10f);
             
-            // Add spectral variation for other coefficients
             for (int m = 1; m < NUM_MFCC; m++) {
                 float variation = 0.0f;
                 for (int i = 0; i < N_FFT / NUM_MFCC && (frameStart + i) < BUFFER_SIZE; i++) {
@@ -146,7 +120,6 @@ void extractMFCC() {
             frameCount++;
         }
         
-        // Average and store in feature vector
         if (frameCount > 0) {
             for (int m = 0; m < NUM_MFCC; m++) {
                 mfccFeatures[seg * NUM_MFCC + m] = segmentMFCC[m] / frameCount;
@@ -167,33 +140,24 @@ void extractMFCC() {
     Serial.printf("[MFCC] Extraction complete (%lu ms)\n", duration);
 }
 
-// ============================================
-// Feature Scaling (StandardScaler)
-// ============================================
 void scaleFeatures() {
     for (int i = 0; i < TOTAL_FEATURES; i++) {
         mfccFeatures[i] = (mfccFeatures[i] - SCALER_MEAN[i]) / SCALER_STD[i];
     }
 }
 
-// ============================================
-// K-Means Inference
-// ============================================
 void classifySound() {
     Serial.println("\n[INFERENCE] Running K-Means classification...");
     unsigned long startTime = millis();
     
-    // Scale features
     scaleFeatures();
     
-    // Find nearest centroid
     float minDistance = INFINITY;
     int nearestCluster = -1;
     
     for (int c = 0; c < N_CLUSTERS; c++) {
         float distance = 0.0f;
         
-        // Calculate Euclidean distance
         for (int f = 0; f < N_FEATURES; f++) {
             float diff = mfccFeatures[f] - CENTROIDS[c][f];
             distance += diff * diff;
@@ -207,14 +171,11 @@ void classifySound() {
         }
     }
     
-    // Get class from cluster
     int predictedClass = CLUSTER_TO_CLASS[nearestCluster];
     const char* className = CLASS_LABELS[predictedClass];
     
-    // Calculate confidence (inverse of distance, normalized)
     float confidence = 100.0f / (1.0f + minDistance);
     
-    // Calculate decibels (RMS of audio)
     float rms = 0.0f;
     for (int i = 0; i < BUFFER_SIZE; i++) {
         float sample = (float)audioBuffer[i] / 32768.0f;
@@ -227,7 +188,6 @@ void classifySound() {
     
     unsigned long duration = millis() - startTime;
     
-    // Print results
     Serial.println("\n===========================================");
     Serial.println(" CLASSIFICATION RESULTS");
     Serial.println("===========================================");
@@ -240,9 +200,6 @@ void classifySound() {
     Serial.println("===========================================\n");
 }
 
-// ============================================
-// Compute Decibels
-// ============================================
 float computeDecibels() {
     float rms = 0.0f;
     for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -252,12 +209,9 @@ float computeDecibels() {
     rms = sqrtf(rms / BUFFER_SIZE);
     
     float dbFS = 20.0f * log10f(rms + 1e-10f);
-    return dbFS + 94.0f; // Approximate SPL
+    return dbFS + 94.0f;
 }
 
-// ============================================
-// Setup
-// ============================================
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -270,7 +224,6 @@ void setup() {
     Serial.printf("Classes: %d\n", N_CLASSES);
     Serial.println("===========================================\n");
     
-    // Allocate memory
     Serial.println("[SETUP] Allocating memory...");
     audioBuffer = (int16_t*)ps_malloc(BUFFER_SIZE * sizeof(int16_t));
     mfccFeatures = (float*)ps_malloc(TOTAL_FEATURES * sizeof(float));
@@ -283,26 +236,18 @@ void setup() {
     Serial.printf("[SETUP] Audio buffer: %d KB\n", (BUFFER_SIZE * sizeof(int16_t)) / 1024);
     Serial.printf("[SETUP] MFCC buffer: %d bytes\n", TOTAL_FEATURES * sizeof(float));
     
-    // Setup I2S
     setupI2S();
     
     Serial.println("\n[READY] System initialized. Starting classification...\n");
     delay(1000);
 }
 
-// ============================================
-// Main Loop
-// ============================================
 void loop() {
-    // Record audio
     if (recordAudio()) {
-        // Extract MFCC features
         extractMFCC();
         
-        // Classify sound
         classifySound();
     }
     
-    // Wait before next classification
     delay(CLASSIFICATION_INTERVAL);
 }

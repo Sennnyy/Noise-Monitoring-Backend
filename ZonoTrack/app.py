@@ -38,22 +38,19 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from collections import Counter
 
-# ============================================
+
 # CONSTANTS
-# ============================================
 SAMPLE_RATE = 22050
 NUM_MFCC = 13
 N_FFT = 1024
 HOP_LENGTH = 512
 NUM_SEGMENTS = 10
-N_CLUSTERS = 256  # Number of K-Means clusters
+N_CLUSTERS = 256 
 
 # Base directory (where app.py is located)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ============================================
 # FLASK APP SETUP
-# ============================================
 app = Flask(__name__)
 CORS(app)
 
@@ -79,23 +76,8 @@ cluster_to_label = None
 label_classes = None
 
 
-# ============================================
 # COMPUTATION FUNCTIONS
-# ============================================
-
 def euclidean_distance(x, centroid):
-    """
-    Compute Euclidean distance between feature vector and centroid.
-    
-    Formula: d = sqrt(sum((x_i - c_i)^2))
-    
-    Args:
-        x: Feature vector (1D array)
-        centroid: Centroid vector (1D array)
-    
-    Returns:
-        float: Euclidean distance
-    """
     squared_diff = 0.0
     for i in range(len(x)):
         diff = x[i] - centroid[i]
@@ -106,16 +88,6 @@ def euclidean_distance(x, centroid):
 
 
 def compute_all_distances(x, centroids):
-    """
-    Compute distances from feature vector to ALL centroids.
-    
-    Args:
-        x: Feature vector
-        centroids: Array of centroid vectors
-    
-    Returns:
-        list: Distances to each centroid
-    """
     distances = []
     for centroid in centroids:
         d = euclidean_distance(x, centroid)
@@ -124,15 +96,6 @@ def compute_all_distances(x, centroids):
 
 
 def find_nearest_cluster(distances):
-    """
-    Find the cluster with minimum distance.
-    
-    Args:
-        distances: List of distances to each centroid
-    
-    Returns:
-        tuple: (cluster_index, min_distance)
-    """
     min_distance = distances[0]
     min_index = 0
     
@@ -145,43 +108,11 @@ def find_nearest_cluster(distances):
 
 
 def compute_confidence(min_distance):
-    """
-    Compute confidence score from distance.
-    
-    Formula: confidence = exp(-distance / 10) * 100
-    
-    Closer distance (smaller value) = higher confidence
-    
-    Args:
-        min_distance: Distance to nearest centroid
-    
-    Returns:
-        float: Confidence percentage (0-100)
-    """
     confidence = math.exp(-min_distance / 10.0) * 100.0
     return min(confidence, 99.9)
 
 
 def compute_decibels(signal):
-    """
-    Compute Sound Pressure Level (SPL) in decibels.
-    
-    Formula: dB_SPL = 20 * log10(rms / reference)
-    
-    Where:
-    - rms = Root Mean Square of the signal
-    - reference = 20 μPa (threshold of human hearing)
-    
-    For digital audio normalized to [-1, 1]:
-    - 0 dBFS = maximum digital level
-    - dB = 20 * log10(rms)
-    
-    Args:
-        signal: Audio signal array
-    
-    Returns:
-        dict: dB values and computation details
-    """
     # Compute RMS (Root Mean Square)
     rms = math.sqrt(sum(s * s for s in signal) / len(signal))
     
@@ -193,8 +124,6 @@ def compute_decibels(signal):
     db_fs = 20 * math.log10(rms)
     
     # Estimated SPL (approximate, assuming calibrated microphone)
-    # Typical ambient: 30-50 dB, conversation: 60-70 dB, traffic: 70-85 dB
-    # We add an offset to approximate real-world SPL values
     db_spl_estimate = db_fs + 94  # Approximate offset for SPL
     
     return {
@@ -207,16 +136,6 @@ def compute_decibels(signal):
 
 
 def get_noise_level_description(db_spl):
-    """
-    Get human-readable description of noise level.
-    
-    Reference levels:
-    - 30 dB: Whisper
-    - 60 dB: Normal conversation
-    - 70 dB: Traffic
-    - 85 dB: Heavy traffic (hearing damage threshold)
-    - 120 dB: Pain threshold
-    """
     if db_spl < 30:
         return 'Very quiet (whisper level)'
     elif db_spl < 50:
@@ -236,20 +155,6 @@ def get_noise_level_description(db_spl):
 
 
 def get_noise_indicator(db_spl):
-    """
-    Get noise level indicator based on WHO/EPA standards.
-    
-    WHO Guidelines:
-    - < 55 dB: Normal (safe for continuous exposure)
-    - 55-70 dB: Elevated (moderate noise, may cause annoyance)
-    - > 70 dB: High (risk of hearing damage with prolonged exposure)
-    
-    Args:
-        db_spl: Sound pressure level in decibels
-    
-    Returns:
-        str: 'Normal', 'Elevated', or 'High'
-    """
     if db_spl < 55:
         return 'Normal'
     elif db_spl < 70:
@@ -259,17 +164,6 @@ def get_noise_indicator(db_spl):
 
 
 def compute_centroid_mean(points):
-    """
-    Compute new centroid as mean of assigned points.
-    
-    Formula: c_new = (1/n) * sum(x_i)
-    
-    Args:
-        points: List of feature vectors assigned to cluster
-    
-    Returns:
-        array: New centroid position
-    """
     if len(points) == 0:
         return None
     
@@ -286,25 +180,8 @@ def compute_centroid_mean(points):
     return centroid
 
 
-# ============================================
 # FEATURE EXTRACTION
-# ============================================
-
 def extract_mfcc_features(file_path, return_signal=False):
-    """
-    Extract MFCC features from audio file.
-    
-    MFCC = Mel-Frequency Cepstral Coefficients
-    Represents the short-term power spectrum of sound.
-    
-    Args:
-        file_path: Path to audio file
-        return_signal: If True, also return the raw signal for dB calculation
-    
-    Returns:
-        If return_signal=False: flattened MFCC features
-        If return_signal=True: (flattened MFCC features, signal array)
-    """
     signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
     
     mfccs = librosa.feature.mfcc(
@@ -331,7 +208,6 @@ def allowed_file(filename):
 
 
 def load_model():
-    """Load trained K-Means model."""
     global kmeans_model, scaler, cluster_to_label, label_classes
     
     if os.path.exists(KMEANS_PATH) and os.path.exists(SCALER_PATH):
@@ -348,17 +224,9 @@ def load_model():
         print("Model not found. Run /api/train first.")
 
 
-# ============================================
 # REST API ENDPOINTS
-# ============================================
-
 @app.route('/api/predict', methods=['POST'])
 def predict():
-    """
-    Classify audio using K-Means with explicit computation.
-    
-    Returns class, confidence, and computation details.
-    """
     if kmeans_model is None:
         return jsonify({'error': 'Model not loaded. Run /api/train first.'}), 500
     
@@ -414,15 +282,6 @@ def predict():
 
 @app.route('/api/train', methods=['POST'])
 def train():
-    """
-    Train K-Means model on dataset.
-    
-    K-Means Algorithm Steps:
-    1. Initialize k random centroids
-    2. Assign points to nearest centroid (Euclidean distance)
-    3. Recompute centroids as mean of assigned points
-    4. Repeat until convergence
-    """
     global kmeans_model, scaler, cluster_to_label, label_classes
     
     try:

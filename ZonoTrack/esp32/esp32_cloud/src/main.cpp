@@ -26,15 +26,9 @@
 #include <ArduinoJson.h>
 #include "config.h"
 
-// ============================================
-// Global Variables
-// ============================================
 int16_t* audioBuffer = nullptr;
 bool isRecording = false;
 
-// ============================================
-// I2S Configuration
-// ============================================
 void setupI2S() {
     Serial.println("Configuring I2S...");
     
@@ -74,9 +68,6 @@ void setupI2S() {
     Serial.println("I2S configured successfully");
 }
 
-// ============================================
-// WiFi Connection
-// ============================================
 void connectWiFi() {
     Serial.println("\n===========================================");
     Serial.println(" Connecting to WiFi");
@@ -100,9 +91,6 @@ void connectWiFi() {
     }
 }
 
-// ============================================
-// Audio Recording
-// ============================================
 bool recordAudio() {
     Serial.println("\n===========================================");
     Serial.println(" Recording Audio");
@@ -112,7 +100,6 @@ bool recordAudio() {
     
     isRecording = true;
     
-    // Allocate buffer
     if (audioBuffer == nullptr) {
         audioBuffer = (int16_t*)ps_malloc(BUFFER_SIZE * sizeof(int16_t));
         if (audioBuffer == nullptr) {
@@ -121,20 +108,16 @@ bool recordAudio() {
         }
     }
     
-    // Clear buffer
     memset(audioBuffer, 0, BUFFER_SIZE * sizeof(int16_t));
     
-    // Record audio
     size_t bytesRead = 0;
     int32_t sample32;
     
     for (int i = 0; i < BUFFER_SIZE; i++) {
         i2s_read(I2S_PORT, &sample32, sizeof(int32_t), &bytesRead, portMAX_DELAY);
         
-        // Convert 32-bit to 16-bit (take upper 16 bits)
         audioBuffer[i] = (int16_t)(sample32 >> 16);
         
-        // Progress indicator
         if (i % (SAMPLE_RATE / 4) == 0) {
             Serial.print(".");
         }
@@ -146,9 +129,6 @@ bool recordAudio() {
     return true;
 }
 
-// ============================================
-// Create WAV File in Memory
-// ============================================
 uint8_t* createWAV(size_t* wavSize) {
     const int headerSize = 44;
     const int dataSize = BUFFER_SIZE * sizeof(int16_t);
@@ -160,30 +140,25 @@ uint8_t* createWAV(size_t* wavSize) {
         return nullptr;
     }
     
-    // WAV header
     memcpy(wavData + 0, "RIFF", 4);
     *(uint32_t*)(wavData + 4) = *wavSize - 8;
     memcpy(wavData + 8, "WAVE", 4);
     memcpy(wavData + 12, "fmt ", 4);
-    *(uint32_t*)(wavData + 16) = 16;  // fmt chunk size
-    *(uint16_t*)(wavData + 20) = 1;   // PCM format
-    *(uint16_t*)(wavData + 22) = 1;   // Mono
+    *(uint32_t*)(wavData + 16) = 16;
+    *(uint16_t*)(wavData + 20) = 1;
+    *(uint16_t*)(wavData + 22) = 1;
     *(uint32_t*)(wavData + 24) = SAMPLE_RATE;
-    *(uint32_t*)(wavData + 28) = SAMPLE_RATE * 2;  // Byte rate
-    *(uint16_t*)(wavData + 32) = 2;   // Block align
-    *(uint16_t*)(wavData + 34) = 16;  // Bits per sample
+    *(uint32_t*)(wavData + 28) = SAMPLE_RATE * 2;
+    *(uint16_t*)(wavData + 32) = 2;
+    *(uint16_t*)(wavData + 34) = 16;
     memcpy(wavData + 36, "data", 4);
     *(uint32_t*)(wavData + 40) = dataSize;
     
-    // Copy audio data
     memcpy(wavData + headerSize, audioBuffer, dataSize);
     
     return wavData;
 }
 
-// ============================================
-// Send to Flask API
-// ============================================
 void classifyAudio() {
     Serial.println("\n===========================================");
     Serial.println(" Sending to Flask API");
@@ -194,7 +169,6 @@ void classifyAudio() {
         return;
     }
     
-    // Create WAV file
     size_t wavSize;
     uint8_t* wavData = createWAV(&wavSize);
     if (wavData == nullptr) {
@@ -203,20 +177,17 @@ void classifyAudio() {
     
     Serial.printf("WAV Size: %d bytes\n", wavSize);
     
-    // Prepare HTTP client
     HTTPClient http;
     String url = String(API_URL) + String(API_ENDPOINT);
     Serial.printf("URL: %s\n", url.c_str());
     
     http.begin(url);
-    http.setTimeout(15000);  // 15 second timeout
+    http.setTimeout(15000);
     
-    // Create multipart form data
     String boundary = "----ESP32Boundary";
     String contentType = "multipart/form-data; boundary=" + boundary;
     http.addHeader("Content-Type", contentType);
     
-    // Build multipart body
     String header = "--" + boundary + "\r\n";
     header += "Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n";
     header += "Content-Type: audio/wav\r\n\r\n";
@@ -232,16 +203,13 @@ void classifyAudio() {
         return;
     }
     
-    // Combine header + WAV + footer
     memcpy(postData, header.c_str(), header.length());
     memcpy(postData + header.length(), wavData, wavSize);
     memcpy(postData + header.length() + wavSize, footer.c_str(), footer.length());
     
-    // Send POST request
     Serial.println("Sending HTTP POST...");
     int httpCode = http.POST(postData, totalSize);
     
-    // Parse response
     if (httpCode == HTTP_CODE_OK) {
         String response = http.getString();
         Serial.println("\n✓ Classification successful!");
@@ -249,7 +217,6 @@ void classifyAudio() {
         Serial.println(" RESULTS");
         Serial.println("-------------------------------------------");
         
-        // Parse JSON
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, response);
         
@@ -285,15 +252,11 @@ void classifyAudio() {
         }
     }
     
-    // Cleanup
     http.end();
     free(postData);
     free(wavData);
 }
 
-// ============================================
-// Setup
-// ============================================
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -305,10 +268,8 @@ void setup() {
     Serial.println("Approach: Cloud Computing (Flask API)");
     Serial.println();
     
-    // Setup I2S microphone
     setupI2S();
     
-    // Connect to WiFi
     connectWiFi();
     
     Serial.println("\n===========================================");
@@ -317,18 +278,12 @@ void setup() {
     Serial.printf("Classification interval: %d ms\n", CLASSIFICATION_INTERVAL);
 }
 
-// ============================================
-// Main Loop
-// ============================================
 void loop() {
     if (WiFi.status() == WL_CONNECTED) {
-        // Record audio
         if (recordAudio()) {
-            // Classify
             classifyAudio();
         }
         
-        // Wait before next classification
         Serial.printf("\nWaiting %d seconds...\n", CLASSIFICATION_INTERVAL / 1000);
         delay(CLASSIFICATION_INTERVAL);
     } else {

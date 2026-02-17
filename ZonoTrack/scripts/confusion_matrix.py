@@ -1,11 +1,3 @@
-"""
-Confusion Matrix Visualization for ZonoTrack K-Means Model
-
-Generates a visual confusion matrix and displays model evaluation metrics.
-
-Run this script after training the model with /api/train endpoint.
-"""
-
 import os
 import math
 import numpy as np
@@ -15,9 +7,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 
-# ============================================
-# CONSTANTS (same as app.py)
-# ============================================
 SAMPLE_RATE = 22050
 NUM_MFCC = 13
 N_FFT = 1024
@@ -25,10 +14,8 @@ HOP_LENGTH = 512
 NUM_SEGMENTS = 10
 N_CLUSTERS = 256
 
-# Base directory (parent of scripts folder = ZonoTrack root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Model paths
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
 KMEANS_PATH = os.path.join(MODELS_DIR, 'kmeans_model.joblib')
 SCALER_PATH = os.path.join(MODELS_DIR, 'scaler.joblib')
@@ -38,7 +25,6 @@ RESULTS_PATH = os.path.join(BASE_DIR, 'results')
 
 
 def extract_mfcc_features(file_path):
-    """Extract MFCC features from audio file."""
     signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
     
     mfccs = librosa.feature.mfcc(
@@ -59,7 +45,6 @@ def extract_mfcc_features(file_path):
 
 
 def euclidean_distance(x, centroid):
-    """Compute Euclidean distance between feature vector and centroid."""
     squared_diff = 0.0
     for i in range(len(x)):
         diff = x[i] - centroid[i]
@@ -68,12 +53,10 @@ def euclidean_distance(x, centroid):
 
 
 def compute_all_distances(x, centroids):
-    """Compute distances from feature vector to all centroids."""
     return [euclidean_distance(x, c) for c in centroids]
 
 
-def find_nearest_cluster(distances):
-    """Find the cluster with minimum distance."""
+def find_nearest_cluster(distances):    
     min_distance = distances[0]
     min_index = 0
     for i in range(1, len(distances)):
@@ -88,7 +71,6 @@ def main():
     print(" ZonoTrack K-Means Confusion Matrix Visualization")
     print("=" * 60)
     
-    # Load model
     if not os.path.exists(KMEANS_PATH) or not os.path.exists(SCALER_PATH):
         print("\nError: Model not found. Run /api/train first.")
         return
@@ -100,7 +82,6 @@ def main():
     
     print("Evaluating on dataset...")
     
-    # Collect predictions
     y_true = []
     y_pred = []
     
@@ -141,19 +122,15 @@ def main():
     
     print(f"\nTotal samples evaluated: {len(y_true)}")
     
-    # Get labels
     all_labels = sorted(list(set(y_true + y_pred)))
     
-    # Compute confusion matrix
     cm = confusion_matrix(y_true, y_pred, labels=all_labels)
     
-    # Compute metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, average='weighted', zero_division=0)
     recall = recall_score(y_true, y_pred, average='weighted', zero_division=0)
     f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
     
-    # Print metrics
     print("\n" + "=" * 60)
     print(" MODEL EVALUATION METRICS")
     print("=" * 60)
@@ -162,7 +139,6 @@ def main():
     print(f"  Recall:    {recall:.4f}")
     print(f"  F1 Score:  {f1:.4f}")
     
-    # Per-class metrics
     print("\n" + "-" * 60)
     print(" PER-CLASS METRICS")
     print("-" * 60)
@@ -176,17 +152,13 @@ def main():
         support = sum(1 for y in y_true if y == label)
         print(f"  {label:<20} {per_class_precision[i]:<12.4f} {per_class_recall[i]:<12.4f} {per_class_f1[i]:<12.4f} {support:<10}")
     
-    # Create results directory
     os.makedirs(RESULTS_PATH, exist_ok=True)
     
-    # Plot confusion matrix
     plt.figure(figsize=(12, 10))
     
-    # Normalized confusion matrix (percentages)
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    cm_normalized = np.nan_to_num(cm_normalized)  # Handle division by zero
+    cm_normalized = np.nan_to_num(cm_normalized)
     
-    # Create heatmap
     sns.heatmap(
         cm_normalized,
         annot=True,
@@ -208,12 +180,10 @@ def main():
     plt.yticks(rotation=0)
     plt.tight_layout()
     
-    # Save figure
     output_path = os.path.join(RESULTS_PATH, 'confusion_matrix.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"\n  Confusion matrix saved to: {output_path}")
     
-    # Also create a raw counts version
     plt.figure(figsize=(12, 10))
     sns.heatmap(
         cm,
@@ -240,7 +210,6 @@ def main():
     plt.savefig(output_path_counts, dpi=150, bbox_inches='tight')
     print(f"  Counts matrix saved to: {output_path_counts}")
     
-    # Show the plots
     print("\n" + "=" * 60)
     print(" Displaying confusion matrix visualization...")
     print("=" * 60)
